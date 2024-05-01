@@ -123,8 +123,8 @@ namespace MindiFy
                 {
                     TemplateId = neuron.TemplateId,
                     NewState = neuron.State, // Example metric
-                    ErrorRate = neuron.CalculateErrorRate(), // Hypothetical method
-                    ActivationFrequency = neuron.ActivationFrequency // Hypothetical property
+                    ErrorRate = neuron.CalculateErrorRate(), // still need to implement
+                    ActivationFrequency = neuron.ActivationFrequency // still need to track
                 };
                 feedbackList.Add(feedback);
             }
