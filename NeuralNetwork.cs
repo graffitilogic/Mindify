@@ -7,168 +7,141 @@ using System.Drawing;
 
 namespace MindiFy
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+
     public class NeuralNetwork
     {
-        private List<Neuron> activeNeurons = new List<Neuron>();
-        private NeuronPool neuronPool = new NeuronPool();
-        public double LearningRate { get; set; } = 0.01;
+        private List<NeuralCluster> activeClusters = new List<NeuralCluster>();
+        private Dictionary<int, NeuronTemplate> templates = new Dictionary<int, NeuronTemplate>();
+        private const double PerformanceThreshold = 0.5;  // Example threshold for performance evaluation
+
+        public NeuralNetwork()
+        {
+            // Initialize with some templates, could be loaded or predefined
+            templates[1] = new NeuronTemplate { InitialState = 0.1 };
+            templates[2] = new NeuronTemplate { InitialState = 0.2 };
+        }
+
+        public void ProcessInput(int clusterId, List<double> inputs)
+        {
+            var cluster = activeClusters.FirstOrDefault(c => c.Id == clusterId);
+            if (cluster != null)
+            {
+                cluster.ProcessInput(inputs);
+            }
+            else
+            {
+                // Log or handle error: cluster not found
+            }
+        }
+
+        public void UpdateTemplates(List<NeuronFeedback> feedbacks)
+        {
+            foreach (var feedback in feedbacks)
+            {
+                if (templates.ContainsKey(feedback.TemplateId))
+                {
+                    var template = templates[feedback.TemplateId];
+                    // Example update: adjust initial state based on feedback
+                    template.InitialState = feedbacks.Where(f => f.TemplateId == feedback.TemplateId).Average(f => f.NewState);
+                }
+            }
+        }
+
+        public void ManageClusters()
+        {
+            foreach (var cluster in activeClusters.ToList())
+            {
+                if (cluster.Performance < PerformanceThreshold)
+                {
+                    DecommissionCluster(cluster);
+                    activeClusters.Remove(cluster);
+                    var newCluster = CreateClusterBasedOnNewTemplates();
+                    activeClusters.Add(newCluster);
+                }
+            }
+        }
+
+        private NeuralCluster CreateClusterBasedOnNewTemplates()
+        {
+            var newCluster = new NeuralCluster();
+            // Assuming each new cluster uses a random selection of templates
+            foreach (var template in templates.Values)
+            {
+                newCluster.AddNeuron(template);
+            }
+            return newCluster;
+        }
+
+
+        public void ProcessClusterInputs(int clusterId, List<double> inputs)
+        {
+            var cluster = activeClusters.FirstOrDefault(c => c.Id == clusterId);
+            if (cluster != null)
+            {
+                cluster.ProcessInput(inputs);
+                var feedbacks = cluster.GenerateFeedback();
+                UpdateTemplates(feedbacks);
+            }
+            else
+            {
+                // Handle error: Cluster not found
+            }
+        }
+
+
+        private void DecommissionCluster(NeuralCluster cluster)
+        {
+            // Logic to clean up and recycle resources from the cluster
+        }
+    }
+
+    public class NeuralCluster
+    {
+        public int Id { get; set; }
+        public List<Neuron> Neurons { get; set; } = new List<Neuron>();
+        public double Performance { get; set; }
+
+        public void AddNeuron(NeuronTemplate template)
+        {
+            Neurons.Add(new Neuron(template));
+        }
 
         public void ProcessInput(List<double> inputs)
         {
-            AdjustNetworkSize(inputs.Count);
-
-            // Simulate input processing and neuron activation
-            // Adjust weights and connections post-processing
-            Learn();
+            // Logic to process inputs through the neurons in the cluster
         }
 
-        private void Learn()
+        public List<NeuronFeedback> GenerateFeedback()
         {
-            foreach (var neuron in activeNeurons)
+            List<NeuronFeedback> feedbackList = new List<NeuronFeedback>();
+            foreach (var neuron in Neurons)
             {
-                foreach (var synapse in neuron.Connections.Where(s => s.IsActive))
+                var feedback = new NeuronFeedback
                 {
-                    // Hebbian-like learning rule with decay
-                    synapse.Weight += LearningRate * synapse.FromNeuron.Output * synapse.ToNeuron.Output;
-                    synapse.Weight *= 0.99; // Decay factor to mimic forgetting
-                }
+                    TemplateId = neuron.TemplateId,
+                    NewState = neuron.State, // Example metric
+                    ErrorRate = neuron.CalculateErrorRate(), // Hypothetical method
+                    ActivationFrequency = neuron.ActivationFrequency // Hypothetical property
+                };
+                feedbackList.Add(feedback);
             }
-
-            // Optionally add new synapses or remove underperforming ones
-            ManageSynapses();
+            return feedbackList;
         }
 
-        private void ManageSynapses()
-        {
-            foreach (var neuron in activeNeurons)
-            {
-                // Remove synapses with negligible weight
-                neuron.Connections.RemoveAll(s => s.Weight < 0.01);
-                // Dynamically create new connections if necessary
-                if (neuron.Connections.Count < 3) // Example threshold
-                {
-                    var newTarget = activeNeurons[new Random().Next(activeNeurons.Count)];
-                    if (newTarget != neuron)
-                    {
-                        neuron.Connections.Add(new Synapse(neuron, newTarget, 0.1));
-                    }
-                }
-            }
 
-        }
-
-        private void AdjustNetworkSize(int desiredSize)
-        {
-            while (activeNeurons.Count < desiredSize)
-            {
-                var neuron = neuronPool.GetNeuron();
-                activeNeurons.Add(neuron);
-            }
-
-            while (activeNeurons.Count > desiredSize)
-            {
-                var neuron = activeNeurons.Last();
-                activeNeurons.Remove(neuron);
-                neuronPool.ReleaseNeuron(neuron);
-            }
-        }
-
-        public void TrainForPatternRecognition(List<List<double>> trainingPatterns)
-        {
-            foreach (var pattern in trainingPatterns)
-            {
-                ProcessInput(pattern);
-                AdjustWeightsForRecognition(pattern);  // Custom method to reinforce pattern learning
-            }
-        }
-
-        private void AdjustWeightsForRecognition(List<double> pattern)
-        {
-            foreach (var neuron in activeNeurons)
-            {
-                foreach (var synapse in neuron.Connections)
-                {
-                    if (neuron.Output > 0.5)  // Assuming output > 0.5 is significant activation
-                    {
-                        // Strengthen the connections for recognized patterns
-                        synapse.Weight += LearningRate;
-                    }
-                }
-            }
-        }
-
-        public void MakeDecision(List<double> input, double uncertaintyThreshold)
-        {
-            ProcessInput(input);
-            double uncertainty = CalculateUncertainty();  // Calculate current uncertainty in decision
-
-            if (uncertainty > uncertaintyThreshold)
-            {
-                Console.WriteLine("Decision under high uncertainty.");
-            }
-            else
-            {
-                Console.WriteLine("Decision with confidence.");
-            }
-        }
-
-        private double CalculateUncertainty()
-        {
-            // This could be based on the variance in neuron outputs or similar metrics
-            return activeNeurons.Select(neuron => neuron.Output).Variance();  // Hypothetical method to calculate variance
-        }
-
-        public void TrainOnComplexPatterns(List<Bitmap> images)
-        {
-            foreach (var image in images)
-            {
-                var input = PreprocessImage(image);
-                ProcessInput(input);
-                AdjustWeightsForComplexPatterns(input);  // Adjust weights based on feature recognition
-            }
-        }
-
-        private List<double> PreprocessImage(Bitmap image)
-        {
-            List<double> pixelValues = new List<double>();
-            for (int i = 0; i < image.Width; i++)
-            {
-                for (int j = 0; j < image.Height; j++)
-                {
-                    Color pixel = image.GetPixel(i, j);
-                    // Convert to grayscale and normalize
-                    double grayScale = (pixel.R * 0.3 + pixel.G * 0.59 + pixel.B * 0.11) / 255.0;
-                    pixelValues.Add(grayScale);
-                }
-            }
-            return pixelValues;
-        }
-
-        private void AdjustWeightsForComplexPatterns(List<double> input)
-        {
-            // Implementation of feature detection and learning
-        }
-
-        public void AdvancedDecisionMaking(List<double> input, double riskThreshold)
-        {
-            ProcessInput(input);
-            var decisionConfidence = CalculateDecisionConfidence();
-
-            if (decisionConfidence < riskThreshold)
-            {
-                Console.WriteLine("Decision made with low confidence: explore further or take caution.");
-            }
-            else
-            {
-                Console.WriteLine("Decision made with high confidence.");
-            }
-        }
-
-        private double CalculateDecisionConfidence()
-        {
-            // Implement a method to calculate the confidence level of the output decision
-            return activeNeurons.Select(neuron => neuron.Output).Average();
-        }
     }
+
+    public class NeuronFeedback
+    {
+        public int TemplateId { get; set; }
+        public double NewState { get; set; }
+        // Additional metrics can be added here as needed
+        public double ErrorRate { get; set; }
+        public double ActivationFrequency { get; set; }
+    }
+
 
 }
