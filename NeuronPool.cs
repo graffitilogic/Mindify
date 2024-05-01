@@ -11,9 +11,10 @@ namespace Mindify
 
     public class NeuronPool
     {
-        private Queue<Neuron> availableNeurons = new Queue<Neuron>();
-        private const string storagePath = "NeuronStorage.bin";
 
+        private Queue<Neuron> availableNeurons = new Queue<Neuron>();
+        private const string storagePath = "LongTerm.Memory";
+        private const int MAX_SHORT_TERM_MEMORY = 2048;
         public Neuron GetNeuron()
         {
             if (availableNeurons.Count > 0)
@@ -29,7 +30,7 @@ namespace Mindify
 
         public void ReleaseNeuron(Neuron neuron)
         {
-            if (availableNeurons.Count < 100)  // Assume 100 is the threshold for in-memory storage
+            if (availableNeurons.Count < MAX_SHORT_TERM_MEMORY)  // the threshold for in-memory storage
             {
                 availableNeurons.Enqueue(neuron);
             }
